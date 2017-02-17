@@ -35,6 +35,9 @@ cdef class LinExpr:
     cpdef Var getVar(LinExpr self, int i)
     cpdef double getConstant(LinExpr self)
     cpdef double getValue(LinExpr self)
+    cpdef addTerms(LinExpr self, coeffs, vars)
+    cpdef addConstant(LinExpr self, double c)
+    cpdef add(LinExpr self, expr, double mult=?)
     cdef LinExpr copy(self)
     @staticmethod
     cdef int addInplace(LinExpr first, other) except -1
@@ -84,7 +87,7 @@ cdef class Model:
     # =======================
     # public Python interface
     # =======================
-    cpdef getAttr(self, char* attrname, objs=?)
+    cpdef getAttr(self, attrname, objs=?)
     cpdef addVar(self, double lb=?, double ub=?, double obj=?, char vtype=?, name=?, column=?)
     cpdef addSOS(self, int type, vars, weights=?)
     cpdef addRange(self, LinExpr expr, double lower, double upper, name=?)
@@ -103,6 +106,7 @@ cdef class Model:
     cpdef optimize(self, callback=?)
     cpdef cbGet(self, int what)
     cpdef write(self, filename)
+    cpdef computeIIS(self)
 
 cdef class TempConstr:
     cdef LinExpr rhs, lhs
@@ -181,4 +185,5 @@ cdef extern from 'gurobi_c.h':
     int GRBcbget(void *cbdata, int where, int what, void *resultP)
     void GRBterminate (GRBmodel *)
     int GRBwrite(GRBmodel *, const char *filename)
+    int GRBcomputeIIS(GRBmodel *)
     int GRBsetpwlobj (GRBmodel *model, int var, int npoints, double *x, double *y)

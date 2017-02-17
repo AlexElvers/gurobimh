@@ -174,7 +174,7 @@ IntParams += ['MIPFocus', 'VarBranch']
 # cuts
 IntParams += ['CutPasses']
 # other
-IntParams += ['OutputFlag', 'PrePasses', 'Presolve', 'Threads', 'UpdateMode']
+IntParams += ['NumericFocus', 'OutputFlag', 'PrePasses', 'Presolve', 'Threads', 'UpdateMode']
 StrParams += ['LogFile']
 DblParams += ['TuneTimeLimit']
 
@@ -449,8 +449,11 @@ cdef class Model:
         else:
             raise AttributeError('Unknown model attribute: {}'.format(attr))
 
-    cpdef getAttr(self, char *attrname, objs=None):
-        return [obj.__getattr__(attrname) for obj in objs]
+    cpdef getAttr(self, attrname, objs=None):
+        if objs is None:
+            return self.__getattr__(attrname)
+        else:
+            return [obj.__getattr__(attrname) for obj in objs]
 
     cdef int getIntAttr(self, char *attr) except ERRORCODE:
         cdef int value
@@ -635,7 +638,7 @@ cdef class Model:
         ind = array(__arrayCodeInt, [0]*numVars)
         types = array(__arrayCodeInt, [type])
         beg = array(__arrayCodeInt, [0])
-        
+
         if weights is not None:
             weight = array(__arrayCodeDbl, weights)
         else:
@@ -944,6 +947,11 @@ cdef class Model:
         if self.error:
             raise GurobiError('Error writing model: {}'.format(self.error))
 
+    cpdef computeIIS(self):
+        self.error = GRBcomputeIIS(self.model)
+        if self.error:
+            raise GurobiError('Error computing IIS: {}'.format(self.error))
+
     def __dealloc__(self):
         GRBfreemodel(self.model)
 
@@ -1058,6 +1066,20 @@ cdef class LinExpr:
         for i in range(self.size()):
             total += self.coeffs[i]*self.vars[i].X
         return total
+
+    cpdef addTerms(LinExpr self, coeffs, vars):
+        if isinstance(vars, Var):
+            self.vars.append(vars)
+            c_array.resize_smart(self.coeffs, len(self.coeffs) + 1)
+            self.coeffs.data.as_doubles[len(self.coeffs)-1] = coeffs
+        else:
+            LinExpr.addInplace(self, quicksum(zip(coeffs, vars)))
+
+    cpdef addConstant(LinExpr self, double c):
+        self.constant += c
+
+    cpdef add(LinExpr self, expr, double mult=1.0):
+        LinExpr.addInplace(self, mult * expr)
 
     @staticmethod
     cdef int addInplace(LinExpr first, other) except -1:
